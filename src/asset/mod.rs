@@ -1,6 +1,5 @@
 use crate::{
-    ecs::ResourceManager,
-    service::ServiceRepo,
+    ecs::{Resource, ResourceManager},
     shared::{ext::path::PathExt, ResourceId, ResourceType},
 };
 use std::{
@@ -22,19 +21,19 @@ pub struct AssetInfo {
 
 pub struct ImportContext<'a> {
     info: AssetInfo,
-    services: &'a mut ServiceRepo,
+    resources: &'a ResourceManager,
     assets: &'a mut AssetDatabase,
 }
 
 impl<'a> ImportContext<'a> {
     pub fn new(
         info: AssetInfo,
-        services: &'a mut ServiceRepo,
+        resources: &'a ResourceManager,
         assets: &'a mut AssetDatabase,
     ) -> Self {
         Self {
             info,
-            services,
+            resources,
             assets,
         }
     }
@@ -43,8 +42,8 @@ impl<'a> ImportContext<'a> {
         &self.info
     }
 
-    pub fn services(&mut self) -> &mut ServiceRepo {
-        self.services
+    pub fn resources(&self) -> &ResourceManager {
+        self.resources
     }
 
     pub fn assets(&mut self) -> &mut AssetDatabase {
@@ -139,17 +138,15 @@ impl AssetDatabase {
 impl AssetDatabase {
     pub fn load(base_path: &Path, resources: &ResourceManager, importers: &ImporterRepo) {
         let mut db = resources.resource_mut::<AssetDatabase>();
-        let mut services = resources.resource_mut::<ServiceRepo>();
-
         let sorted_importers: HashMap<&str, Vec<&Box<dyn BaseImporter>>> = importers.sort();
 
-        AssetDatabase::load_inner(base_path, &mut db, &mut services, &sorted_importers);
+        AssetDatabase::load_inner(base_path, &mut db, resources, &sorted_importers);
     }
 
     fn load_inner(
         base_path: &Path,
         db: &mut AssetDatabase,
-        services: &mut ServiceRepo,
+        resources: &ResourceManager,
         importers: &HashMap<&str, Vec<&Box<dyn BaseImporter>>>,
     ) {
         let read_dir = std::fs::read_dir(base_path).expect("Failed to read path: {path}");
@@ -158,7 +155,7 @@ impl AssetDatabase {
             if let Ok(entry) = entry {
                 let path = entry.path();
                 if path.is_dir() {
-                    let _ = AssetDatabase::load_inner(&path, db, services, importers);
+                    let _ = AssetDatabase::load_inner(&path, db, resources, importers);
                 } else if path.is_file() {
                     let ext = path.extension_str();
                     if let Some(importers) = importers.get(ext) {
@@ -171,13 +168,23 @@ impl AssetDatabase {
                                 name: path.file_stem().unwrap().to_str().unwrap().to_string(),
                                 path: path.clone(),
                             };
-                            let mut ctx = ImportContext::new(info, services, db);
+                            let mut ctx = ImportContext::new(info, resources, db);
                             importer.import(&mut ctx);
                         }
                     }
                 }
             }
         }
+    }
+}
+
+impl Resource for AssetDatabase {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

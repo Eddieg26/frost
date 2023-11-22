@@ -8,6 +8,9 @@ use std::{
 };
 
 pub mod ext;
+pub mod primitives;
+
+pub use primitives::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct ResourceId(u64);

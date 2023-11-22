@@ -3,6 +3,7 @@ use crate::ecs::{
     component::{Component, ComponentType},
     entity::EntityId,
     registry::Registry,
+    Entity,
 };
 use std::{
     any::TypeId,
@@ -74,6 +75,24 @@ pub struct Copied<T: Component + Copy> {
 
 pub struct Write<T: Component> {
     _marker: PhantomData<T>,
+}
+
+impl BaseFetch for EntityId {}
+
+impl Fetch for EntityId {
+    type Type<'a> = EntityId;
+
+    fn type_id() -> Option<ComponentType> {
+        None
+    }
+
+    fn contains(_world: &World, _id: &EntityId) -> bool {
+        true
+    }
+
+    fn get(_world: &World, id: EntityId) -> Self::Type<'_> {
+        id
+    }
 }
 
 impl<T: Component> BaseFetch for T {}

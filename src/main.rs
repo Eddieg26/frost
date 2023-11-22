@@ -1,11 +1,32 @@
-pub mod app;
+use crate::game::Game;
+
 pub mod asset;
-pub mod builtin;
 pub mod ecs;
+pub mod game;
 pub mod graphics;
-pub mod service;
+pub mod scene;
 pub mod shared;
 
+pub struct MainScene;
+
+impl scene::Scene for MainScene {
+    fn name(&self) -> &str {
+        todo!()
+    }
+
+    fn start(&self, world: &ecs::World) {
+        todo!()
+    }
+
+    fn end(&self, world: &ecs::World) {
+        todo!()
+    }
+
+    fn update(&self, world: &ecs::World) {
+        todo!()
+    }
+}
+
 fn main() {
-    println!("Hello, world!");
+    Game::new().run::<MainScene>()
 }

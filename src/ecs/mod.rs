@@ -1,4 +1,5 @@
 pub mod archetype;
+pub mod builtin;
 pub mod component;
 pub mod entity;
 pub mod hashid;

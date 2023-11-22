@@ -1,12 +1,13 @@
+use super::{
+    device::GpuDevice, graphics_resources::GraphicsResources, vertex::Vertex, BufferId, MaterialId,
+    MeshId, TextureId,
+};
+use crate::{
+    ecs::Resource,
+    graphics::{material::MaterialInfo, mesh::Mesh, texture::Texture},
+};
 use std::{collections::HashMap, rc::Rc};
 use wgpu::util::DeviceExt;
-
-use crate::{
-    graphics::{
-        BufferId, GpuDevice, MaterialId, MaterialInfo, Mesh, MeshId, Texture, TextureId, Vertex,
-    },
-    service::Service,
-};
 
 pub struct Graphics {
     device: Rc<GpuDevice>,
@@ -25,21 +26,25 @@ impl Graphics {
         }
     }
 
-    pub fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
-        self.buffers.get(id)
-    }
-
-    pub fn texture(&self, id: &TextureId) -> Option<&wgpu::Texture> {
-        self.textures.get(id)
-    }
-
-    pub fn mesh(&self, id: &MeshId) -> Option<&Mesh> {
-        self.meshes.get(id)
+    pub fn device(&self) -> &GpuDevice {
+        &self.device
     }
 }
 
-impl Graphics {
-    pub fn create_vertex_buffer(&mut self, id: &BufferId, vertices: &Vec<Vertex>) {
+impl GraphicsResources for Graphics {
+    fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
+        self.buffers.get(id)
+    }
+
+    fn texture(&self, id: &TextureId) -> Option<&wgpu::Texture> {
+        self.textures.get(id)
+    }
+
+    fn mesh(&self, id: &MeshId) -> Option<&Mesh> {
+        self.meshes.get(id)
+    }
+
+    fn create_vertex_buffer(&mut self, id: &BufferId, vertices: &Vec<Vertex>) {
         let vertex_buffer =
             self.device
                 .device()
@@ -52,7 +57,7 @@ impl Graphics {
         self.buffers.insert(id.clone(), vertex_buffer);
     }
 
-    pub fn create_index_buffer(&mut self, id: &BufferId, indices: &Vec<u32>) {
+    fn create_index_buffer(&mut self, id: &BufferId, indices: &Vec<u32>) {
         let index_buffer =
             self.device
                 .device()
@@ -65,7 +70,7 @@ impl Graphics {
         self.buffers.insert(id.clone(), index_buffer);
     }
 
-    pub fn create_uniform_buffer(&mut self, id: &BufferId, buffer: &[u8]) {
+    fn create_uniform_buffer(&mut self, id: &BufferId, buffer: &[u8]) {
         let uniform_buffer =
             self.device
                 .device()
@@ -78,7 +83,7 @@ impl Graphics {
         self.buffers.insert(id.clone(), uniform_buffer);
     }
 
-    pub fn create_texture(&mut self, id: &TextureId, texture: &dyn Texture) {
+    fn create_texture(&mut self, id: &TextureId, texture: &dyn Texture) {
         let gpu_texture = self
             .device
             .device()
@@ -120,11 +125,11 @@ impl Graphics {
         self.textures.insert(id.clone(), gpu_texture);
     }
 
-    pub fn create_material(&mut self, id: &MaterialId, info: MaterialInfo) {
+    fn create_material(&mut self, id: &MaterialId, info: &MaterialInfo) {
         println!("create_material: {:?} {:?}", id, info);
     }
 
-    pub fn create_mesh(&mut self, id: &MeshId, vertices: &Vec<Vertex>, indices: &Vec<u32>) {
+    fn create_mesh(&mut self, id: &MeshId, vertices: &Vec<Vertex>, indices: &Vec<u32>) {
         self.meshes.insert(
             id.clone(),
             Mesh::new(self.device.device(), &vertices, &indices),
@@ -132,7 +137,7 @@ impl Graphics {
     }
 }
 
-impl Service for Graphics {
+impl Resource for Graphics {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

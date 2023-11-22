@@ -1,13 +1,13 @@
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
+    pub r: f64,
+    pub g: f64,
+    pub b: f64,
+    pub a: f64,
 }
 
 impl Color {
-    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self { r, g, b, a }
     }
 
@@ -32,14 +32,14 @@ impl Color {
     }
 }
 
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
+impl Into<[f64; 4]> for Color {
+    fn into(self) -> [f64; 4] {
         [self.r, self.g, self.b, self.a]
     }
 }
 
-impl Into<[f32; 3]> for Color {
-    fn into(self) -> [f32; 3] {
+impl Into<[f64; 3]> for Color {
+    fn into(self) -> [f64; 3] {
         [self.r, self.g, self.b]
     }
 }
@@ -55,14 +55,14 @@ impl Into<[u8; 4]> for Color {
     }
 }
 
-impl From<[f32; 4]> for Color {
-    fn from(color: [f32; 4]) -> Self {
+impl From<[f64; 4]> for Color {
+    fn from(color: [f64; 4]) -> Self {
         Self::new(color[0], color[1], color[2], color[3])
     }
 }
 
-impl From<[f32; 3]> for Color {
-    fn from(color: [f32; 3]) -> Self {
+impl From<[f64; 3]> for Color {
+    fn from(color: [f64; 3]) -> Self {
         Self::new(color[0], color[1], color[2], 1.0)
     }
 }
@@ -70,10 +70,21 @@ impl From<[f32; 3]> for Color {
 impl From<[u8; 4]> for Color {
     fn from(color: [u8; 4]) -> Self {
         Self::new(
-            color[0] as f32 / 255.0,
-            color[1] as f32 / 255.0,
-            color[2] as f32 / 255.0,
-            color[3] as f32 / 255.0,
+            color[0] as f64 / 255.0,
+            color[1] as f64 / 255.0,
+            color[2] as f64 / 255.0,
+            color[3] as f64 / 255.0,
         )
+    }
+}
+
+impl Into<wgpu::Color> for Color {
+    fn into(self) -> wgpu::Color {
+        wgpu::Color {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: self.a,
+        }
     }
 }

@@ -1,11 +1,14 @@
-use super::vertex::Vertex;
+use crate::{graphics::vertex::Vertex, shared::Bounds};
+use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
+#[derive(Clone)]
 pub struct Mesh {
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    vertex_buffer: Rc<wgpu::Buffer>,
+    index_buffer: Rc<wgpu::Buffer>,
     vertex_count: u32,
     index_count: u32,
+    bounds: Bounds,
 }
 
 impl Mesh {
@@ -21,11 +24,19 @@ impl Mesh {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let bounds = Bounds::from_points(
+            &vertices
+                .iter()
+                .map(|v| glam::Vec3::new(v.position[0], v.position[1], v.position[2]))
+                .collect::<Vec<_>>(),
+        );
+
         Mesh {
-            vertex_buffer,
-            index_buffer,
+            vertex_buffer: Rc::new(vertex_buffer),
+            index_buffer: Rc::new(index_buffer),
             vertex_count: vertices.len() as u32,
             index_count: indices.len() as u32,
+            bounds,
         }
     }
 
@@ -43,5 +54,9 @@ impl Mesh {
 
     pub fn index_count(&self) -> u32 {
         self.index_count
+    }
+
+    pub fn bounds(&self) -> &Bounds {
+        &self.bounds
     }
 }

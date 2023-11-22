@@ -1,4 +1,4 @@
-use super::{color::Color, TextureId};
+use crate::graphics::{color::Color, TextureId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ShaderModel {
@@ -9,10 +9,7 @@ pub enum ShaderModel {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlendMode {
     Opaque,
-    Masked,
     Translucent,
-    Additive,
-    Modulate,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -26,13 +23,12 @@ pub struct Material {
     shader_model: ShaderModel,
     blend_mode: BlendMode,
     color: Option<MaterialInput>,
-    specular: Option<MaterialInput>,
     normal: Option<MaterialInput>,
+    specular: Option<MaterialInput>,
     metallic: Option<MaterialInput>,
     roughness: Option<MaterialInput>,
     emissive: Option<MaterialInput>,
     opacity: Option<MaterialInput>,
-    opacity_mask: Option<MaterialInput>,
 }
 
 impl Material {
@@ -75,10 +71,6 @@ impl Material {
     pub fn opacity(&self) -> Option<&MaterialInput> {
         self.opacity.as_ref()
     }
-
-    pub fn opacity_mask(&self) -> Option<&MaterialInput> {
-        self.opacity_mask.as_ref()
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -92,7 +84,6 @@ pub struct MaterialInfo {
     roughness: Option<MaterialInput>,
     emissive: Option<MaterialInput>,
     opacity: Option<MaterialInput>,
-    opacity_mask: Option<MaterialInput>,
 }
 
 impl MaterialInfo {
@@ -107,7 +98,6 @@ impl MaterialInfo {
             roughness: None,
             emissive: None,
             opacity: None,
-            opacity_mask: None,
         }
     }
 
@@ -155,12 +145,6 @@ impl MaterialInfo {
         self.opacity = Some(MaterialInput::Texture(opacity));
         self
     }
-
-    pub fn opacity_mask(mut self, opacity_mask: TextureId) -> Self {
-        self.opacity_mask = Some(MaterialInput::Texture(opacity_mask));
-        self
-    }
-
     pub fn build(self) -> Material {
         Material {
             shader_model: self.shader_model,
@@ -172,7 +156,6 @@ impl MaterialInfo {
             roughness: self.roughness,
             emissive: self.emissive,
             opacity: self.opacity,
-            opacity_mask: self.opacity_mask,
         }
     }
 }

@@ -4,6 +4,7 @@ use super::{
         query::{Query, Write},
         World,
     },
+    EntityId,
 };
 
 pub trait System {
@@ -26,7 +27,7 @@ pub struct PlayerSystem {}
 
 impl System for PlayerSystem {
     fn run(world: &World) {
-        let _query = Query::<(Write<Player>, Option<Goblin>)>::new(world);
+        let _query = Query::<(EntityId, Write<Player>, Option<Goblin>)>::new(world);
         // events.add(CreateEntity::new().with(world, Player { health: 5 }));
         // events.add(DestroyEntity::new(EntityId::new(None)));
         // events.add(DestroyComponent::<Player>::new(EntityId(0)));
