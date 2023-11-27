@@ -62,7 +62,7 @@ pub struct RenderScene {
 impl RenderScene {
     pub fn new() -> RenderScene {
         RenderScene {
-            meshes: OctTree::new(Bounds::MAX, 8, 8),
+            meshes: OctTree::new(Bounds::MAX, 8, 8), 
             lights3d: OctTree::new(Bounds::MAX, 8, 8),
             lights2d: QuadTree::new(Rect::MAX, 8, 8),
         }
