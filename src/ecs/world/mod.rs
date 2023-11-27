@@ -1,27 +1,29 @@
-use self::events::{entity::EntityBuilder, Event, WorldEvents};
 use super::{
     archetype::ArchetypeManager,
     component::{manager::ComponentManager, registry::ComponentRegistry, Component, ComponentType},
-    entity::{registry::EntityRegistry, EntityId},
+    entity::registry::EntityRegistry,
+    observer::EventManager,
     registry::Registry,
     resource::{manager::ResourceManager, Resource, ResourceType},
+    EntityId,
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
 };
 
+pub use events::*;
+pub use query::*;
+
 pub mod events;
 pub mod query;
 
 type Entities = Rc<RefCell<EntityRegistry>>;
 type Archetypes = Rc<RefCell<ArchetypeManager>>;
-type Events = Rc<RefCell<WorldEvents>>;
 
 pub struct World {
     entities: Entities,
     archetypes: Archetypes,
-    events: Events,
     components: ComponentManager,
     resources: ResourceManager,
 }
@@ -30,15 +32,17 @@ impl World {
     pub fn new(components: ComponentManager, resources: ResourceManager) -> World {
         let entities = Rc::new(RefCell::new(EntityRegistry::new()));
         let archetypes = Rc::new(RefCell::new(ArchetypeManager::new()));
-        let events = Rc::new(RefCell::new(WorldEvents::new()));
 
         World {
             components,
             resources,
             entities,
             archetypes,
-            events,
         }
+    }
+
+    pub fn component_manager(&self) -> &ComponentManager {
+        &self.components
     }
 
     pub fn components<T: Component>(&self) -> Ref<'_, ComponentRegistry<T>> {
@@ -65,34 +69,79 @@ impl World {
         self.resources.resource_ref(type_id)
     }
 
-    pub fn entities(&self) -> &Rc<RefCell<EntityRegistry>> {
+    pub fn entities(&self) -> Ref<'_, EntityRegistry> {
+        self.entities.borrow()
+    }
+
+    pub fn entities_mut(&self) -> RefMut<'_, EntityRegistry> {
+        self.entities.borrow_mut()
+    }
+
+    pub fn entities_ref(&self) -> &Rc<RefCell<EntityRegistry>> {
         &self.entities
     }
 
-    pub fn archetypes(&self) -> &Rc<RefCell<ArchetypeManager>> {
+    pub fn archetypes(&self) -> Ref<'_, ArchetypeManager> {
+        self.archetypes.borrow()
+    }
+
+    pub fn archetypes_mut(&self) -> RefMut<'_, ArchetypeManager> {
+        self.archetypes.borrow_mut()
+    }
+
+    pub fn archetypes_ref(&self) -> &Rc<RefCell<ArchetypeManager>> {
         &self.archetypes
     }
 }
 
 impl World {
-    pub fn add_event(&self, event: impl Event) {
-        let mut events = self.events.borrow_mut();
-        events.add(event);
-    }
-
-    pub fn spawn(&self, _builder: EntityBuilder) {
-        todo!()
+    pub fn spawn(&self, entity: CreateEntity) {
+        self.resource_mut::<EventManager>().register(entity);
     }
 
     pub fn spawn_empty(&self) -> EntityId {
-        todo!()
+        let entity = CreateEntity::new();
+        let id = entity.id().clone();
+        self.resource_mut::<EventManager>().register(entity);
+        id
     }
 
-    pub fn destroy(&self, _id: &EntityId) {
-        todo!()
+    pub fn destroy(&self, id: &EntityId) {
+        let event = DestroyEntity::new(*id);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn activate(&self, id: &EntityId) {
+        let event = EnableEntity::new(*id);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn deactivate(&self, id: &EntityId) {
+        let event = DisableEntity::new(*id);
+        self.resource_mut::<EventManager>().register(event);
     }
 
     pub fn remove<T: Component>(&self, _id: &EntityId) {
-        todo!()
+        let event = RemoveComponent::<T>::new(*_id);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn disable<T: Component>(&self, _id: &EntityId) {
+        let event = RemoveComponent::<T>::new(*_id);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn enable<T: Component>(&self, _id: &EntityId) {
+        let event = RemoveComponent::<T>::new(*_id);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn update<T: Component>(&self, id: &EntityId, component: T) {
+        let event = UpdateComponent::<T>::new(*id, component);
+        self.resource_mut::<EventManager>().register(event);
+    }
+
+    pub fn has<T: Component>(&self, id: &EntityId) -> bool {
+        self.components::<T>().get(id).is_some()
     }
 }

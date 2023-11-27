@@ -1,9 +1,9 @@
-pub struct GpuDevice {
+pub struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
 
-impl GpuDevice {
+impl Gpu {
     pub async fn new(adapter: &wgpu::Adapter) -> Self {
         let (device, queue) = adapter
             .request_device(
@@ -17,7 +17,7 @@ impl GpuDevice {
             .await
             .unwrap();
 
-        GpuDevice { device, queue }
+        Gpu { device, queue }
     }
 
     pub fn device(&self) -> &wgpu::Device {

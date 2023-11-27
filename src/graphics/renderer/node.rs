@@ -1,4 +1,4 @@
-use super::GpuDevice;
+use super::Gpu;
 use crate::graphics::RenderContext;
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ pub trait RenderNode {
 }
 
 pub trait RenderNodeBuilder: 'static {
-    fn build(&self, device: &GpuDevice) -> Box<dyn RenderNode>;
+    fn build(&self, device: &Gpu) -> Box<dyn RenderNode>;
 }
 
 pub struct RenderNodes {

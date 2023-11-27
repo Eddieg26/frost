@@ -1,52 +1,62 @@
 use super::{
-    device::GpuDevice, graphics_resources::GraphicsResources, vertex::Vertex, BufferId, MaterialId,
-    MeshId, TextureId,
+    gpu::Gpu, mesh::SubMesh, vertex::Vertex, BufferId, DrawMesh, MaterialId, MeshId, RenderScene,
+    TextureId,
 };
 use crate::{
     ecs::Resource,
-    graphics::{material::MaterialInfo, mesh::Mesh, texture::Texture},
+    graphics::{light::LightRef, material::MaterialInfo, mesh::Mesh, texture::Texture},
 };
 use std::{collections::HashMap, rc::Rc};
 use wgpu::util::DeviceExt;
 
 pub struct Graphics {
-    device: Rc<GpuDevice>,
+    gpu: Rc<Gpu>,
     buffers: HashMap<BufferId, wgpu::Buffer>,
     textures: HashMap<TextureId, wgpu::Texture>,
     meshes: HashMap<MeshId, Mesh>,
+    scene: RenderScene,
 }
 
 impl Graphics {
-    pub fn new(device: Rc<GpuDevice>) -> Self {
+    pub fn new(gpu: Rc<Gpu>) -> Self {
         Self {
-            device,
+            gpu,
             buffers: HashMap::new(),
             textures: HashMap::new(),
             meshes: HashMap::new(),
+            scene: RenderScene::new(),
         }
     }
 
-    pub fn device(&self) -> &GpuDevice {
-        &self.device
+    pub fn gpu(&self) -> &Gpu {
+        &self.gpu
     }
 }
 
-impl GraphicsResources for Graphics {
-    fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
+impl Graphics {
+    pub fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
         self.buffers.get(id)
     }
 
-    fn texture(&self, id: &TextureId) -> Option<&wgpu::Texture> {
+    pub fn texture(&self, id: &TextureId) -> Option<&wgpu::Texture> {
         self.textures.get(id)
     }
 
-    fn mesh(&self, id: &MeshId) -> Option<&Mesh> {
+    pub fn mesh(&self, id: &MeshId) -> Option<&Mesh> {
         self.meshes.get(id)
     }
 
-    fn create_vertex_buffer(&mut self, id: &BufferId, vertices: &Vec<Vertex>) {
+    pub(super) fn scene(&self) -> &RenderScene {
+        &self.scene
+    }
+
+    pub(super) fn scene_mut(&mut self) -> &mut RenderScene {
+        &mut self.scene
+    }
+
+    pub fn create_vertex_buffer(&mut self, id: &BufferId, vertices: &Vec<Vertex>) {
         let vertex_buffer =
-            self.device
+            self.gpu
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Vertex Buffer"),
@@ -57,9 +67,9 @@ impl GraphicsResources for Graphics {
         self.buffers.insert(id.clone(), vertex_buffer);
     }
 
-    fn create_index_buffer(&mut self, id: &BufferId, indices: &Vec<u32>) {
+    pub fn create_index_buffer(&mut self, id: &BufferId, indices: &Vec<u32>) {
         let index_buffer =
-            self.device
+            self.gpu
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Index Buffer"),
@@ -70,9 +80,9 @@ impl GraphicsResources for Graphics {
         self.buffers.insert(id.clone(), index_buffer);
     }
 
-    fn create_uniform_buffer(&mut self, id: &BufferId, buffer: &[u8]) {
+    pub fn create_uniform_buffer(&mut self, id: &BufferId, buffer: &[u8]) {
         let uniform_buffer =
-            self.device
+            self.gpu
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Uniform Buffer"),
@@ -83,26 +93,23 @@ impl GraphicsResources for Graphics {
         self.buffers.insert(id.clone(), uniform_buffer);
     }
 
-    fn create_texture(&mut self, id: &TextureId, texture: &dyn Texture) {
-        let gpu_texture = self
-            .device
-            .device()
-            .create_texture(&wgpu::TextureDescriptor {
-                dimension: texture.dimension(),
-                format: texture.format(),
-                label: Some(&id.to_string()),
-                mip_level_count: if texture.mipmaps() { 1 } else { 0 },
-                sample_count: 1,
-                size: wgpu::Extent3d {
-                    depth_or_array_layers: texture.depth(),
-                    height: texture.height(),
-                    width: texture.width(),
-                },
-                usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            });
+    pub fn create_texture(&mut self, id: &TextureId, texture: &dyn Texture) {
+        let gpu_texture = self.gpu.device().create_texture(&wgpu::TextureDescriptor {
+            dimension: texture.dimension(),
+            format: texture.format(),
+            label: Some(&id.to_string()),
+            mip_level_count: if texture.mipmaps() { 1 } else { 0 },
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                depth_or_array_layers: texture.depth(),
+                height: texture.height(),
+                width: texture.width(),
+            },
+            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
 
-        self.device.queue().write_texture(
+        self.gpu.queue().write_texture(
             wgpu::ImageCopyTexture {
                 texture: &gpu_texture,
                 mip_level: 0,
@@ -125,15 +132,36 @@ impl GraphicsResources for Graphics {
         self.textures.insert(id.clone(), gpu_texture);
     }
 
-    fn create_material(&mut self, id: &MaterialId, info: &MaterialInfo) {
+    pub fn create_material(&mut self, id: &MaterialId, info: &MaterialInfo) {
         println!("create_material: {:?} {:?}", id, info);
     }
 
-    fn create_mesh(&mut self, id: &MeshId, vertices: &Vec<Vertex>, indices: &Vec<u32>) {
+    pub fn create_mesh(
+        &mut self,
+        id: &MeshId,
+        vertices: &Vec<Vertex>,
+        indices: &Vec<u32>,
+        submeshes: &[SubMesh],
+    ) {
         self.meshes.insert(
             id.clone(),
-            Mesh::new(self.device.device(), &vertices, &indices),
+            Mesh::new(self.gpu.device(), &vertices, &indices, &submeshes),
         );
+    }
+}
+
+impl Graphics {
+    pub fn draw_mesh(&mut self, id: &MeshId, materials: Vec<MaterialId>, transform: glam::Mat4) {
+        if let Some(mesh) = self.mesh(id) {
+            let bounds = mesh.bounds().transform(&transform);
+
+            self.scene
+                .add_mesh(DrawMesh::new(transform, id.clone(), materials, bounds));
+        }
+    }
+
+    pub fn render_light(&mut self, light: LightRef) {
+        self.scene.add_light(light);
     }
 }
 

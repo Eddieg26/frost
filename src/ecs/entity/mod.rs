@@ -1,5 +1,10 @@
 pub mod registry;
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
+
+use super::HashId;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -26,9 +31,19 @@ impl Entity {
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Hash, PartialOrd, Ord)]
 pub struct EntityId(pub u64);
 
+impl Display for EntityId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
 impl EntityId {
     pub fn new(id: u64) -> EntityId {
         EntityId(id)
+    }
+
+    pub fn uuid() -> EntityId {
+        EntityId(HashId::new())
     }
 
     pub fn zero() -> EntityId {

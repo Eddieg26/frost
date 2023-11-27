@@ -1,5 +1,5 @@
 use super::{
-    device::GpuDevice,
+    gpu::Gpu,
     renderer::{Renderer, RendererBuilder},
     surface::RenderSurface,
     Graphics,
@@ -8,7 +8,7 @@ use std::rc::Rc;
 use winit::event_loop::EventLoop;
 
 pub struct GraphicsEngine {
-    device: Rc<GpuDevice>,
+    gpu: Rc<Gpu>,
     surface: RenderSurface,
     renderer: Renderer,
 }
@@ -16,18 +16,18 @@ pub struct GraphicsEngine {
 impl GraphicsEngine {
     pub(crate) async fn new(events: &EventLoop<()>) -> GraphicsEngine {
         let surface = RenderSurface::new(events).await;
-        let device = Rc::new(GpuDevice::new(surface.adapter()).await);
-        let renderer = RendererBuilder::new().build(&device, &surface);
+        let gpu = Rc::new(Gpu::new(surface.adapter()).await);
+        let renderer = RendererBuilder::new().build(&gpu, &surface);
 
         GraphicsEngine {
-            device,
+            gpu,
             surface,
             renderer,
         }
     }
 
-    pub fn device(&self) -> &Rc<GpuDevice> {
-        &self.device
+    pub fn gpu(&self) -> &Rc<Gpu> {
+        &self.gpu
     }
 
     pub fn surface(&self) -> &RenderSurface {
@@ -39,7 +39,7 @@ impl GraphicsEngine {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.surface.resize(self.device.device(), width, height);
+        self.surface.resize(self.gpu.device(), width, height);
         self.renderer.resize(width, height);
     }
 

@@ -30,8 +30,15 @@ impl Rect {
         }
     }
 
-    pub fn contains(&self, x: f32, y: f32) -> bool {
-        x >= self.x && x <= self.x + self.width && y >= self.y && y <= self.y + self.height
+    pub fn from_extents(min: glam::Vec2, max: glam::Vec2) -> Rect {
+        Rect::new(min.x, min.y, max.x - min.x, max.y - min.y)
+    }
+
+    pub fn contains(&self, other: &Rect) -> bool {
+        self.x <= other.x
+            && self.x + self.width >= other.x + other.width
+            && self.y <= other.y
+            && self.y + self.height >= other.y + other.height
     }
 
     pub fn center(&self) -> glam::Vec2 {

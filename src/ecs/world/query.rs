@@ -3,7 +3,6 @@ use crate::ecs::{
     component::{Component, ComponentType},
     entity::EntityId,
     registry::Registry,
-    Entity,
 };
 use std::{
     any::TypeId,
@@ -30,7 +29,7 @@ impl<T: BaseQuery> Query<'_, T> {
         }
     }
 
-    pub fn filter(world: &World, ids: Vec<EntityId>) -> Query<T> {
+    pub fn filter<'a>(world: &'a World, ids: &'a [EntityId]) -> Query<'a, T> {
         let entities = T::entities(world)
             .iter()
             .filter_map(|id| if ids.contains(id) { Some(*id) } else { None })
@@ -191,7 +190,7 @@ macro_rules! impl_base_query {
                 let _type = vec![$($type::type_id()),*] .iter()
                 .filter_map(|i| i.clone())
                 .collect::<Vec<_>>();
-                world.archetypes.borrow().get_component_entities(&_type)
+                world.archetypes().get_component_entities(&_type)
             }
         }
     };

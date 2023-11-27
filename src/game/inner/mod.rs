@@ -1,11 +1,12 @@
 use super::{GameBuilder, GameTime, Timer};
 use crate::{
     asset::AssetDatabase,
-    ecs::World,
+    ecs::{observer::EventManager, Registry, World},
     graphics::{engine::GraphicsEngine, Graphics},
-    scene::{Scene, SceneId, SceneManager},
+    scene::{Scene, SceneManager},
+    schedule::{ScenePhase, Scheduler},
 };
-use std::{cell::RefCell, collections::HashMap, path::Path, rc::Rc, time::Duration};
+use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::EventLoop,
@@ -16,7 +17,7 @@ const FIXED_DELTA: f64 = 1.0 / 60.0;
 pub struct Game {
     world: World,
     graphics: GraphicsEngine,
-    scenes: HashMap<SceneId, Rc<RefCell<Box<dyn Scene>>>>,
+    scheduler: Scheduler,
     timer: Rc<RefCell<Timer>>,
 }
 
@@ -30,26 +31,27 @@ impl Game {
 
         let fixed_delta = Duration::from_secs_f64(FIXED_DELTA);
         let timer = Rc::new(RefCell::new(Timer::new(fixed_delta)));
-        let scenes = builder.scenes.all().clone();
         let scene_manager = builder.scenes.build::<T>();
         let importers = builder.importers;
         let components = builder.components;
         let mut resources = builder.resources;
 
         resources.register(GameTime::new(timer.clone()));
-        resources.register(Graphics::new(graphics.device().clone()));
+        resources.register(Graphics::new(graphics.gpu().clone()));
         resources.register(AssetDatabase::new());
+        resources.register(EventManager::new());
         resources.register(scene_manager);
 
         AssetDatabase::load(&Path::new("./assets"), &mut resources, &importers);
 
         let world = World::new(components, resources);
+        let scheduler = world.resource::<SceneManager>().current_scene().scheduler();
 
         Game {
             world,
             graphics,
-            scenes,
             timer,
+            scheduler,
         }
     }
 
@@ -66,30 +68,41 @@ impl Game {
         };
 
         while accumulator >= fixed_delta {
-            let current = {
-                let mut scene_manager = self.world.resource_mut::<SceneManager>();
-                scene_manager.update(&self.world);
+            if let Some(scheduler) = self.world.resource_mut::<SceneManager>().update() {
+                self.scheduler.run(ScenePhase::End, &self.world);
+                self.scheduler = scheduler;
 
-                scene_manager.current()
-            };
+                let observers = self
+                    .world
+                    .resource_mut::<SceneManager>()
+                    .current_scene()
+                    .observers();
+                self.world.resource_mut::<EventManager>().clear(observers);
 
-            let scene = self.scenes.get(&current).unwrap();
-            scene.borrow_mut().update(&self.world);
+                self.scheduler.run(ScenePhase::Start, &self.world);
+            }
+
+            self.scheduler.run(ScenePhase::Update, &self.world);
+            self.scheduler.run(ScenePhase::PostUpdate, &self.world);
+
+            self.world.component_manager().update();
+            self.world.entities_mut().update();
 
             accumulator -= fixed_delta;
-
-            if self.world.resource::<SceneManager>().quitting() {
-                return false;
-            }
         }
 
         true
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let mut graphics = self.world.resource_mut::<Graphics>();
+        self.scheduler.run(ScenePhase::PreRender, &self.world);
 
-        self.graphics.render(&mut graphics)
+        let mut graphics = self.world.resource_mut::<Graphics>();
+        self.graphics.render(&mut graphics)?;
+
+        self.scheduler.run(ScenePhase::PostRender, &self.world);
+
+        Ok(())
     }
 
     fn window(&self) -> &winit::window::Window {

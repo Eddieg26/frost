@@ -1,5 +1,5 @@
 use super::{registry::ComponentRegistry, Component, ComponentType};
-use crate::ecs::{registry::Registry, resource::Resource};
+use crate::ecs::{registry::Registry, resource::Resource, EntityId};
 use std::{
     any::TypeId,
     cell::{Ref, RefCell, RefMut},
@@ -63,6 +63,30 @@ impl ComponentManager {
         self.components
             .get(type_id)
             .expect("Component Registry not found.")
+    }
+
+    pub fn update(&self) {
+        for (_, registry) in self.components.iter() {
+            registry.borrow_mut().update();
+        }
+    }
+
+    pub fn enable(&self, id: &EntityId) {
+        for (_, registry) in self.components.iter() {
+            registry.borrow_mut().enable(id);
+        }
+    }
+
+    pub fn disable(&self, id: &EntityId) {
+        for (_, registry) in self.components.iter() {
+            registry.borrow_mut().disable(id);
+        }
+    }
+
+    pub fn destroy(&self, id: &EntityId) {
+        for (_, registry) in self.components.iter() {
+            registry.borrow_mut().remove(id);
+        }
     }
 }
 

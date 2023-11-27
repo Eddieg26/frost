@@ -3,6 +3,7 @@ pub mod builtin;
 pub mod component;
 pub mod entity;
 pub mod hashid;
+pub mod observer;
 pub mod registry;
 pub mod resource;
 pub mod system;

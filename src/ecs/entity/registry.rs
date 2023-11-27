@@ -1,24 +1,50 @@
 use super::{Entity, EntityId};
 use crate::ecs::registry::Registry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct EntityRegistry {
     entities: HashMap<EntityId, Entity>,
+    enabled: HashSet<EntityId>,
+    disabled: HashSet<EntityId>,
+    destroyed: HashSet<EntityId>,
 }
 
 impl EntityRegistry {
     pub fn new() -> EntityRegistry {
         EntityRegistry {
             entities: HashMap::new(),
+            destroyed: HashSet::new(),
+            disabled: HashSet::new(),
+            enabled: HashSet::new(),
         }
     }
 
     pub fn get(&self, id: &EntityId) -> Option<&Entity> {
-        self.entities.get(id)
+        if self.destroyed.contains(id) || self.disabled.contains(id) {
+            None
+        } else {
+            self.entities.get(id)
+        }
     }
 
     pub fn get_mut(&mut self, id: &EntityId) -> Option<&mut Entity> {
-        self.entities.get_mut(id)
+        if self.destroyed.contains(id) || self.disabled.contains(id) {
+            None
+        } else {
+            self.entities.get_mut(id)
+        }
+    }
+
+    pub fn enabled(&self) -> impl Iterator<Item = &EntityId> {
+        self.enabled.iter()
+    }
+
+    pub fn disabled(&self) -> impl Iterator<Item = &EntityId> {
+        self.disabled.iter()
+    }
+
+    pub fn destroyed(&self) -> impl Iterator<Item = &EntityId> {
+        self.destroyed.iter()
     }
 
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&EntityId, &Entity)> {
@@ -57,6 +83,33 @@ impl Registry for EntityRegistry {
 
     fn clear(&mut self) {
         self.entities.clear()
+    }
+
+    fn update(&mut self) {
+        self.entities.retain(|id, _| !self.destroyed.contains(id));
+        self.destroyed.clear();
+    }
+
+    fn enable(&mut self, id: &EntityId) {
+        if !self.destroyed.contains(id) {
+            self.enabled.insert(*id);
+            self.disabled.remove(id);
+        }
+    }
+
+    fn disable(&mut self, id: &EntityId) {
+        if !self.destroyed.contains(id) {
+            self.disabled.insert(*id);
+            self.enabled.remove(id);
+        }
+    }
+
+    fn destroy(&mut self, id: &EntityId) {
+        if !self.destroyed.contains(id) {
+            self.destroyed.insert(*id);
+            self.enabled.remove(id);
+            self.disabled.remove(id);
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

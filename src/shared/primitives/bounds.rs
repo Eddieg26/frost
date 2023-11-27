@@ -70,13 +70,22 @@ impl Bounds {
         self.size() / 2.0
     }
 
-    pub fn contains(&self, point: &glam::Vec3) -> bool {
+    pub fn contains_point(&self, point: &glam::Vec3) -> bool {
         self.min.x <= point.x
             && self.min.y <= point.y
             && self.min.z <= point.z
             && self.max.x >= point.x
             && self.max.y >= point.y
             && self.max.z >= point.z
+    }
+
+    pub fn contains(&self, other: &Bounds) -> bool {
+        self.min.x <= other.min.x
+            && self.min.y <= other.min.y
+            && self.min.z <= other.min.z
+            && self.max.x >= other.max.x
+            && self.max.y >= other.max.y
+            && self.max.z >= other.max.z
     }
 
     pub fn intersects(&self, other: &Bounds) -> bool {

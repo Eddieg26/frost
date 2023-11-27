@@ -2,7 +2,7 @@ use self::{
     node::RenderPassKind,
     pass::{RenderPass, RenderPassBuilder},
 };
-use super::{device::GpuDevice, surface::RenderSurface, Graphics, TextureId};
+use super::{gpu::Gpu, surface::RenderSurface, Graphics, TextureId};
 use std::{collections::HashMap, rc::Rc};
 
 pub mod node;
@@ -15,7 +15,7 @@ pub struct TextureInfo {
 }
 
 pub struct Renderer {
-    device: Rc<GpuDevice>,
+    gpu: Rc<Gpu>,
     textures: HashMap<TextureId, wgpu::TextureView>,
     texture_info: HashMap<TextureId, TextureInfo>,
     passes: Vec<RenderPass>,
@@ -23,13 +23,13 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(
-        device: Rc<GpuDevice>,
+        gpu: Rc<Gpu>,
         textures: HashMap<TextureId, wgpu::TextureView>,
         texture_info: HashMap<TextureId, TextureInfo>,
         passes: Vec<RenderPass>,
     ) -> Self {
         Self {
-            device,
+            gpu,
             textures,
             passes,
             texture_info,
@@ -42,7 +42,7 @@ impl Renderer {
         surface: &RenderSurface,
     ) -> Result<(), wgpu::SurfaceError> {
         let mut encoder =
-            self.device
+            self.gpu
                 .device()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render Encoder"),
@@ -53,9 +53,7 @@ impl Renderer {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.device
-            .queue()
-            .submit(std::iter::once(encoder.finish()));
+        self.gpu.queue().submit(std::iter::once(encoder.finish()));
 
         surface_texture.present();
 
@@ -64,23 +62,20 @@ impl Renderer {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         for (id, info) in &self.texture_info {
-            let texture = self
-                .device
-                .device()
-                .create_texture(&wgpu::TextureDescriptor {
-                    label: Some("Texture"),
-                    size: wgpu::Extent3d {
-                        width,
-                        height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: info.format,
-                    usage: info.usage,
-                    view_formats: &vec![],
-                });
+            let texture = self.gpu.device().create_texture(&wgpu::TextureDescriptor {
+                label: Some("Texture"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: info.format,
+                usage: info.usage,
+                view_formats: &vec![],
+            });
 
             let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -104,13 +99,10 @@ impl RendererBuilder {
         self.textures.insert(id, info);
     }
 
-    pub fn build(mut self, device: &Rc<GpuDevice>, surface: &RenderSurface) -> Renderer {
-        let mut passes = self.create_passes();
+    pub fn build(mut self, gpu: &Rc<Gpu>, surface: &RenderSurface) -> Renderer {
+        let passes = self.create_passes();
 
-        let passes = passes
-            .into_iter()
-            .map(|p| p.build(device))
-            .collect::<Vec<_>>();
+        let passes = passes.into_iter().map(|p| p.build(gpu)).collect::<Vec<_>>();
 
         let size = surface.window().inner_size();
 
@@ -118,7 +110,7 @@ impl RendererBuilder {
             .textures
             .iter()
             .map(|(id, info)| {
-                let texture = device.device().create_texture(&wgpu::TextureDescriptor {
+                let texture = gpu.device().create_texture(&wgpu::TextureDescriptor {
                     label: Some("Texture"),
                     size: wgpu::Extent3d {
                         width: size.width,
@@ -139,13 +131,12 @@ impl RendererBuilder {
             })
             .collect::<HashMap<_, _>>();
 
-        Renderer::new(device.clone(), textures, self.textures, passes)
+        Renderer::new(gpu.clone(), textures, self.textures, passes)
     }
 
     fn create_passes(&mut self) -> Vec<RenderPassBuilder> {
-        let deferred = RenderPassBuilder::new(RenderPassKind::Deferred);
         let forward = RenderPassBuilder::new(RenderPassKind::Forward);
 
-        vec![deferred, forward]
+        vec![forward]
     }
 }

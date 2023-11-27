@@ -2,9 +2,7 @@ use super::{
     node::{RenderNodeBuilder, RenderPassKind},
     subpass::{Subpass, SubpassBuilder},
 };
-use crate::graphics::{
-    context::RenderContext, device::GpuDevice, view::RenderView, Graphics, TextureId,
-};
+use crate::graphics::{context::RenderContext, gpu::Gpu, view::RenderView, Graphics, TextureId};
 use std::collections::HashMap;
 use wgpu::TextureView;
 
@@ -202,7 +200,7 @@ impl RenderPassBuilder {
         self.subpasses[subpass].add_node_dyn(node);
     }
 
-    pub fn build(self, device: &GpuDevice) -> RenderPass {
+    pub fn build(self, device: &Gpu) -> RenderPass {
         RenderPass::new(
             self.id,
             self.colors,

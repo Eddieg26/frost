@@ -2,17 +2,29 @@ use crate::{graphics::vertex::Vertex, shared::Bounds};
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
+#[derive(Clone, Copy)]
+pub struct SubMesh {
+    pub index_start: u32,
+    pub index_count: u32,
+}
+
 #[derive(Clone)]
 pub struct Mesh {
     vertex_buffer: Rc<wgpu::Buffer>,
     index_buffer: Rc<wgpu::Buffer>,
+    submeshes: Vec<SubMesh>,
     vertex_count: u32,
     index_count: u32,
     bounds: Bounds,
 }
 
 impl Mesh {
-    pub(crate) fn new(device: &wgpu::Device, vertices: &[Vertex], indices: &[u32]) -> Mesh {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        vertices: &[Vertex],
+        indices: &[u32],
+        submeshes: &[SubMesh],
+    ) -> Mesh {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(vertices),
@@ -34,6 +46,7 @@ impl Mesh {
         Mesh {
             vertex_buffer: Rc::new(vertex_buffer),
             index_buffer: Rc::new(index_buffer),
+            submeshes: submeshes.to_vec(),
             vertex_count: vertices.len() as u32,
             index_count: indices.len() as u32,
             bounds,
@@ -46,6 +59,10 @@ impl Mesh {
 
     pub fn index_buffer(&self) -> &wgpu::Buffer {
         &self.index_buffer
+    }
+
+    pub fn submeshes(&self) -> &[SubMesh] {
+        &self.submeshes
     }
 
     pub fn vertex_count(&self) -> u32 {

@@ -1,5 +1,5 @@
 use super::node::{RenderNode, RenderNodeBuilder};
-use crate::graphics::{context::RenderContext, device::GpuDevice};
+use crate::graphics::{context::RenderContext, gpu::Gpu};
 
 pub struct Subpass {
     nodes: Vec<Box<dyn RenderNode>>,
@@ -34,7 +34,7 @@ impl SubpassBuilder {
         self.nodes.push(node);
     }
 
-    pub fn build(self, device: &GpuDevice) -> Subpass {
+    pub fn build(self, device: &Gpu) -> Subpass {
         Subpass {
             nodes: self.nodes.into_iter().map(|n| n.build(device)).collect(),
         }

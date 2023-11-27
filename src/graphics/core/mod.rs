@@ -1,5 +1,6 @@
 pub mod components;
 pub mod context;
+pub mod draw;
 pub mod gpu;
 pub mod primitives;
 pub mod resources;
@@ -7,6 +8,7 @@ pub mod service;
 
 pub use components::*;
 pub use context::*;
+pub use draw::*;
 pub use gpu::*;
 pub use primitives::*;
 pub use resources::*;
