@@ -8,6 +8,16 @@ pub enum FilterMode {
     Trilinear,
 }
 
+impl Into<wgpu::FilterMode> for FilterMode {
+    fn into(self) -> wgpu::FilterMode {
+        match self {
+            Self::Point => wgpu::FilterMode::Nearest,
+            Self::Bilinear => wgpu::FilterMode::Linear,
+            Self::Trilinear => wgpu::FilterMode::Linear,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WrapMode {
     Repeat,
@@ -15,7 +25,17 @@ pub enum WrapMode {
     Mirror,
 }
 
-pub trait Texture {
+impl Into<wgpu::AddressMode> for WrapMode {
+    fn into(self) -> wgpu::AddressMode {
+        match self {
+            Self::Repeat => wgpu::AddressMode::Repeat,
+            Self::Clamp => wgpu::AddressMode::ClampToEdge,
+            Self::Mirror => wgpu::AddressMode::MirrorRepeat,
+        }
+    }
+}
+
+pub trait Texture: 'static {
     fn width(&self) -> u32;
     fn height(&self) -> u32;
     fn depth(&self) -> u32;
@@ -25,6 +45,22 @@ pub trait Texture {
     fn wrap_mode(&self) -> WrapMode;
     fn mipmaps(&self) -> bool;
     fn pixels(&self) -> &[u8];
+    fn view(&self) -> &wgpu::TextureView;
+    fn sampler(&self) -> &wgpu::Sampler;
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+    pub dimension: Dimension,
+    pub format: Format,
+    pub filter_mode: FilterMode,
+    pub wrap_mode: WrapMode,
+    pub mipmaps: bool,
+    pub pixels: Vec<u8>,
 }
 
 pub struct Texture2d {
@@ -35,6 +71,8 @@ pub struct Texture2d {
     wrap_mode: WrapMode,
     mipmaps: bool,
     pixels: Vec<u8>,
+    view: wgpu::TextureView,
+    sampler: wgpu::Sampler,
 }
 
 impl Texture2d {
@@ -46,6 +84,8 @@ impl Texture2d {
         wrap_mode: WrapMode,
         mipmaps: bool,
         pixels: Vec<u8>,
+        view: wgpu::TextureView,
+        sampler: wgpu::Sampler,
     ) -> Self {
         Self {
             width,
@@ -55,6 +95,8 @@ impl Texture2d {
             wrap_mode,
             mipmaps,
             pixels,
+            view,
+            sampler,
         }
     }
 }
@@ -94,5 +136,21 @@ impl Texture for Texture2d {
 
     fn pixels(&self) -> &[u8] {
         &self.pixels
+    }
+
+    fn view(&self) -> &wgpu::TextureView {
+        &self.view
+    }
+
+    fn sampler(&self) -> &wgpu::Sampler {
+        &self.sampler
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
