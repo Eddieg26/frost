@@ -6,6 +6,7 @@ pub struct RenderSurface {
     adapter: wgpu::Adapter,
     window: Window,
     size: PhysicalSize<u32>,
+    format: wgpu::TextureFormat,
 }
 
 impl RenderSurface {
@@ -58,6 +59,7 @@ impl RenderSurface {
             adapter,
             window,
             size,
+            format: surface_format,
         }
     }
 

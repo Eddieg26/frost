@@ -1,6 +1,6 @@
 use super::{
-    gpu::Gpu, material::Material, mesh::SubMesh, vertex::Vertex, BufferId, DrawMesh, MaterialId,
-    MeshId, RenderScene, TextureId,
+    gpu::Gpu, material::Material, mesh::SubMesh, texture::Texture2d, vertex::Vertex, BufferId,
+    DrawMesh, MaterialId, MeshId, RenderScene, TextureId,
 };
 use crate::{
     ecs::Resource,
@@ -18,6 +18,9 @@ pub struct Graphics {
     gpu: Rc<Gpu>,
     buffers: HashMap<BufferId, wgpu::Buffer>,
     textures: HashMap<TextureId, Box<dyn Texture>>,
+    white_texture: Texture2d,
+    black_texture: Texture2d,
+    gray_texture: Texture2d,
     meshes: HashMap<MeshId, Mesh>,
     materials: HashMap<MaterialId, Material>,
     scene: RenderScene,
@@ -25,6 +28,22 @@ pub struct Graphics {
 
 impl Graphics {
     pub fn new(gpu: Rc<Gpu>) -> Self {
+        let white_texture = Texture2d::new_info(
+            gpu.device(),
+            gpu.queue(),
+            &TextureInfo::white(wgpu::TextureFormat::Rgba32Float),
+        );
+        let black_texture = Texture2d::new_info(
+            gpu.device(),
+            gpu.queue(),
+            &TextureInfo::black(wgpu::TextureFormat::Rgba32Float),
+        );
+        let gray_texture = Texture2d::new_info(
+            gpu.device(),
+            gpu.queue(),
+            &TextureInfo::gray(wgpu::TextureFormat::Rgba32Float),
+        );
+
         Self {
             gpu,
             buffers: HashMap::new(),
@@ -32,6 +51,9 @@ impl Graphics {
             meshes: HashMap::new(),
             materials: HashMap::new(),
             scene: RenderScene::new(),
+            white_texture,
+            black_texture,
+            gray_texture,
         }
     }
 
@@ -41,6 +63,18 @@ impl Graphics {
 
     pub fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
         self.buffers.get(id)
+    }
+
+    pub fn white_texture(&self) -> &Texture2d {
+        &self.white_texture
+    }
+
+    pub fn black_texture(&self) -> &Texture2d {
+        &self.black_texture
+    }
+
+    pub fn gray_texture(&self) -> &Texture2d {
+        &self.gray_texture
     }
 
     pub fn texture<T: Texture>(&self, id: &TextureId) -> Option<&T> {

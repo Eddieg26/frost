@@ -185,17 +185,23 @@ impl MaterialInfo {
     }
 }
 
-struct MaterialUniform {
-    color: [f32; 4],
-    specular: [f32; 4],
-    normal: [f32; 4],
-    metallic: [f32; 4],
-    roughness: [f32; 4],
-    emissive: [f32; 4],
-    opacity: [f32; 4],
+pub trait MaterialUniform {
+    fn to_bytes(&self) -> &[u8];
 }
 
-impl MaterialUniform {
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct LitMaterialUniform {
+    pub color: [f32; 4],
+    pub specular: [f32; 4],
+    pub normal: [f32; 4],
+    pub metallic: [f32; 4],
+    pub roughness: [f32; 4],
+    pub emissive: [f32; 4],
+    pub opacity: [f32; 4],
+}
+
+impl LitMaterialUniform {
     pub fn new() -> Self {
         Self {
             color: [0.0; 4],
@@ -209,190 +215,67 @@ impl MaterialUniform {
     }
 
     pub fn from_material(material: &Material) -> Self {
-        Self {
-            color: get_color(&material.color),
-            specular: get_color(&material.specular),
-            normal: get_color(&material.normal),
-            metallic: get_color(&material.metallic),
-            roughness: get_color(&material.roughness),
-            emissive: get_color(&material.emissive),
-            opacity: get_color(&material.opacity),
-        }
-    }
-}
-
-pub struct ShaderProgram {
-    pipeline: wgpu::RenderPipeline,
-}
-
-fn get_color(input: &Option<ShaderInput>) -> [f32; 4] {
-    input.map_or([0.0; 4], |input| match input {
-        ShaderInput::Color(color) => color.into(),
-        ShaderInput::Scalar(scalar) => [scalar, scalar, scalar, scalar],
-        ShaderInput::Texture(_) => [0.0; 4],
-    })
-}
-
-impl ShaderProgram {
-    fn get_material_block(material: &Material) -> String {
-        let mut block = String::new();
-
-        match material.shader_model {
-            ShaderModel::Lit => {
-                block.push_str("struct Material {");
-                block.push_str(&Self::get_material_input(material, "color", material.color));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "specular",
-                    material.specular,
-                ));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "normal",
-                    material.normal,
-                ));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "metallic",
-                    material.metallic,
-                ));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "roughness",
-                    material.roughness,
-                ));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "emissive",
-                    material.emissive,
-                ));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "opacity",
-                    material.opacity,
-                ));
-                block.push_str("};");
-            }
-            ShaderModel::Unlit => {
-                block.push_str("struct Material {");
-                block.push_str(&Self::get_material_input(material, "color", material.color));
-                block.push_str(&Self::get_material_input(
-                    material,
-                    "opacity",
-                    material.opacity,
-                ));
-                block.push_str("};");
-            }
-        }
-
-        if block.len() < 2 {
-            String::new()
-        } else {
-            block
-        }
-    }
-
-    fn get_texture_block(material: &Material) -> String {
-        let set = 0;
-        let mut binding = 0;
-
-        let block = match material.shader_model {
-            ShaderModel::Lit => {
-                let color =
-                    Self::get_texture_input(material, "color", material.color, set, &mut binding);
-                let specular = Self::get_texture_input(
-                    material,
-                    "specular",
-                    material.specular,
-                    set,
-                    &mut binding,
-                );
-                let normal =
-                    Self::get_texture_input(material, "normal", material.normal, set, &mut binding);
-                let metallic = Self::get_texture_input(
-                    material,
-                    "metallic",
-                    material.metallic,
-                    set,
-                    &mut binding,
-                );
-                let roughness = Self::get_texture_input(
-                    material,
-                    "roughness",
-                    material.roughness,
-                    set,
-                    &mut binding,
-                );
-                let emissive = Self::get_texture_input(
-                    material,
-                    "emissive",
-                    material.emissive,
-                    set,
-                    &mut binding,
-                );
-                let opacity = Self::get_texture_input(
-                    material,
-                    "opacity",
-                    material.opacity,
-                    set,
-                    &mut binding,
-                );
-
-                format!(
-                    "{} {} {} {} {} {} {}",
-                    color, specular, normal, metallic, roughness, emissive, opacity
-                )
-            }
-            ShaderModel::Unlit => {
-                let color =
-                    Self::get_texture_input(material, "color", material.color, set, &mut binding);
-                let opacity = Self::get_texture_input(
-                    material,
-                    "opacity",
-                    material.opacity,
-                    set,
-                    &mut binding,
-                );
-
-                format!("{} {}", color, opacity)
-            }
+        let default_opacity = match material.blend_mode {
+            BlendMode::Opaque => 1.0,
+            BlendMode::Translucent => 0.0,
         };
 
-        if block.len() < 2 {
-            String::new()
-        } else {
-            let sampler = format!(
-                "@group({}) @binding({}) var Sampler: sampler;",
-                set, binding
-            );
-            format!("{} {}", block, sampler)
+        Self {
+            color: get_input_color(&material.color, [1.0; 4]),
+            specular: get_input_color(&material.specular, [0.0; 4]),
+            normal: get_input_color(&material.normal, [0.0; 4]),
+            metallic: get_input_color(&material.metallic, [0.0; 4]),
+            roughness: get_input_color(&material.roughness, [0.5; 4]),
+            emissive: get_input_color(&material.emissive, [0.0; 4]),
+            opacity: get_input_color(&material.opacity, [default_opacity; 4]),
+        }
+    }
+}
+
+impl MaterialUniform for LitMaterialUniform {
+    fn to_bytes(&self) -> &[u8] {
+        bytemuck::bytes_of(self)
+    }
+}
+
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct UnLitMaterialUniform {
+    pub color: [f32; 4],
+    pub opacity: [f32; 4],
+}
+
+impl UnLitMaterialUniform {
+    pub fn new() -> Self {
+        Self {
+            color: [0.0; 4],
+            opacity: [0.0; 4],
         }
     }
 
-    fn get_material_input(material: &Material, name: &str, input: Option<ShaderInput>) -> String {
-        input.map_or(String::new(), |input| match input {
-            ShaderInput::Texture(_) => String::from(""),
-            ShaderInput::Color(_) | ShaderInput::Scalar(_) => format!("{}: vec4<f32>;", name),
-        })
-    }
+    pub fn from_material(material: &Material) -> Self {
+        let default_opacity = match material.blend_mode {
+            BlendMode::Opaque => 1.0,
+            BlendMode::Translucent => 0.0,
+        };
 
-    fn get_texture_input(
-        material: &Material,
-        name: &str,
-        input: Option<ShaderInput>,
-        set: u32,
-        binding: &mut u32,
-    ) -> String {
-        input.map_or(String::new(), |input| match input {
-            ShaderInput::Texture(_) => {
-                let value = format!(
-                    "@group({}) @binding({}) var {}: texture2d<f32>;",
-                    set, binding, name
-                );
-                *binding += 1;
-                value
-            }
-            ShaderInput::Color(_) | ShaderInput::Scalar(_) => String::from(""),
-        })
+        Self {
+            color: get_input_color(&material.color, [1.0; 4]),
+            opacity: get_input_color(&material.opacity, [default_opacity; 4]),
+        }
+    }
+}
+
+impl MaterialUniform for UnLitMaterialUniform {
+    fn to_bytes(&self) -> &[u8] {
+        bytemuck::bytes_of(self)
+    }
+}
+
+fn get_input_color(input: &Option<ShaderInput>, default: [f32; 4]) -> [f32; 4] {
+    match input {
+        Some(ShaderInput::Color(color)) => color.into(),
+        Some(ShaderInput::Scalar(scaler)) => [*scaler, *scaler, *scaler, 1.0],
+        _ => default,
     }
 }
