@@ -44,6 +44,18 @@ impl Into<[f64; 3]> for Color {
     }
 }
 
+impl Into<[f32; 4]> for Color {
+    fn into(self) -> [f32; 4] {
+        [self.r as f32, self.g as f32, self.b as f32, self.a as f32]
+    }
+}
+
+impl Into<[f32; 3]> for Color {
+    fn into(self) -> [f32; 3] {
+        [self.r as f32, self.g as f32, self.b as f32]
+    }
+}
+
 impl Into<[u8; 4]> for Color {
     fn into(self) -> [u8; 4] {
         [
@@ -86,12 +98,6 @@ impl Into<wgpu::Color> for Color {
             b: self.b,
             a: self.a,
         }
-    }
-}
-
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
-        [self.r as f32, self.g as f32, self.b as f32, self.a as f32]
     }
 }
 

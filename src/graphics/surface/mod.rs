@@ -7,6 +7,7 @@ pub struct RenderSurface {
     window: Window,
     size: PhysicalSize<u32>,
     format: wgpu::TextureFormat,
+    depth_format: wgpu::TextureFormat,
 }
 
 impl RenderSurface {
@@ -60,6 +61,7 @@ impl RenderSurface {
             window,
             size,
             format: surface_format,
+            depth_format: wgpu::TextureFormat::Depth32Float,
         }
     }
 
@@ -98,5 +100,13 @@ impl RenderSurface {
 
     pub fn size(&self) -> &PhysicalSize<u32> {
         &self.size
+    }
+
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.format
+    }
+
+    pub fn depth_format(&self) -> wgpu::TextureFormat {
+        self.depth_format
     }
 }

@@ -1,5 +1,6 @@
 use crate::graphics::{color::Color, TextureId};
 use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ShaderModel {
@@ -11,6 +12,37 @@ pub enum ShaderModel {
 pub enum BlendMode {
     Opaque = 0,
     Translucent = 1,
+}
+
+impl Into<wgpu::BlendState> for BlendMode {
+    fn into(self) -> wgpu::BlendState {
+        match self {
+            Self::Opaque => wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    operation: wgpu::BlendOperation::Add,
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::Zero,
+                },
+                alpha: wgpu::BlendComponent {
+                    operation: wgpu::BlendOperation::Add,
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::Zero,
+                },
+            },
+            Self::Translucent => wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    operation: wgpu::BlendOperation::Add,
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                },
+                alpha: wgpu::BlendComponent {
+                    operation: wgpu::BlendOperation::Add,
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                },
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -43,11 +75,11 @@ impl PartialEq for ShaderInput {
 
 impl Eq for ShaderInput {}
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Material {
     shader_model: ShaderModel,
     blend_mode: BlendMode,
-    color: Option<ShaderInput>,
+    color: ShaderInput,
     normal: Option<ShaderInput>,
     specular: Option<ShaderInput>,
     metallic: Option<ShaderInput>,
@@ -69,8 +101,8 @@ impl Material {
         self.blend_mode
     }
 
-    pub fn color(&self) -> Option<&ShaderInput> {
-        self.color.as_ref()
+    pub fn color(&self) -> &ShaderInput {
+        &self.color
     }
 
     pub fn specular(&self) -> Option<&ShaderInput> {
@@ -96,13 +128,37 @@ impl Material {
     pub fn opacity(&self) -> Option<&ShaderInput> {
         self.opacity.as_ref()
     }
+
+    pub fn get_input_color(input: &Option<&ShaderInput>, default: [f32; 4]) -> [f32; 4] {
+        match input {
+            Some(ShaderInput::Color(color)) => color.into(),
+            Some(ShaderInput::Scalar(scaler)) => [*scaler, *scaler, *scaler, 1.0],
+            _ => default,
+        }
+    }
+}
+
+impl Hash for Material {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.shader_model.hash(state);
+        self.blend_mode.hash(state);
+        self.color.hash(state);
+        self.opacity.hash(state);
+        if self.shader_model == ShaderModel::Lit {
+            self.specular.hash(state);
+            self.normal.hash(state);
+            self.metallic.hash(state);
+            self.roughness.hash(state);
+            self.emissive.hash(state);
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MaterialInfo {
     shader_model: ShaderModel,
     blend_mode: BlendMode,
-    color: Option<ShaderInput>,
+    color: ShaderInput,
     specular: Option<ShaderInput>,
     normal: Option<ShaderInput>,
     metallic: Option<ShaderInput>,
@@ -116,7 +172,7 @@ impl MaterialInfo {
         Self {
             shader_model: ShaderModel::Lit,
             blend_mode: BlendMode::Opaque,
-            color: None,
+            color: ShaderInput::Color(Color::white()),
             specular: None,
             normal: None,
             metallic: None,
@@ -136,8 +192,8 @@ impl MaterialInfo {
         self
     }
 
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = Some(ShaderInput::Color(color));
+    pub fn color(mut self, color: ShaderInput) -> Self {
+        self.color = color;
         self
     }
 
@@ -170,7 +226,7 @@ impl MaterialInfo {
         self.opacity = Some(ShaderInput::Texture(opacity));
         self
     }
-    pub fn build(self) -> Material {
+    pub fn build(&self) -> Material {
         Material {
             shader_model: self.shader_model,
             blend_mode: self.blend_mode,
@@ -182,100 +238,5 @@ impl MaterialInfo {
             emissive: self.emissive,
             opacity: self.opacity,
         }
-    }
-}
-
-pub trait MaterialUniform {
-    fn to_bytes(&self) -> &[u8];
-}
-
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-#[repr(C)]
-pub struct LitMaterialUniform {
-    pub color: [f32; 4],
-    pub specular: [f32; 4],
-    pub normal: [f32; 4],
-    pub metallic: [f32; 4],
-    pub roughness: [f32; 4],
-    pub emissive: [f32; 4],
-    pub opacity: [f32; 4],
-}
-
-impl LitMaterialUniform {
-    pub fn new() -> Self {
-        Self {
-            color: [0.0; 4],
-            specular: [0.0; 4],
-            normal: [0.0; 4],
-            metallic: [0.0; 4],
-            roughness: [0.0; 4],
-            emissive: [0.0; 4],
-            opacity: [0.0; 4],
-        }
-    }
-
-    pub fn from_material(material: &Material) -> Self {
-        let default_opacity = match material.blend_mode {
-            BlendMode::Opaque => 1.0,
-            BlendMode::Translucent => 0.0,
-        };
-
-        Self {
-            color: get_input_color(&material.color, [1.0; 4]),
-            specular: get_input_color(&material.specular, [0.0; 4]),
-            normal: get_input_color(&material.normal, [0.0; 4]),
-            metallic: get_input_color(&material.metallic, [0.0; 4]),
-            roughness: get_input_color(&material.roughness, [0.5; 4]),
-            emissive: get_input_color(&material.emissive, [0.0; 4]),
-            opacity: get_input_color(&material.opacity, [default_opacity; 4]),
-        }
-    }
-}
-
-impl MaterialUniform for LitMaterialUniform {
-    fn to_bytes(&self) -> &[u8] {
-        bytemuck::bytes_of(self)
-    }
-}
-
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-#[repr(C)]
-pub struct UnLitMaterialUniform {
-    pub color: [f32; 4],
-    pub opacity: [f32; 4],
-}
-
-impl UnLitMaterialUniform {
-    pub fn new() -> Self {
-        Self {
-            color: [0.0; 4],
-            opacity: [0.0; 4],
-        }
-    }
-
-    pub fn from_material(material: &Material) -> Self {
-        let default_opacity = match material.blend_mode {
-            BlendMode::Opaque => 1.0,
-            BlendMode::Translucent => 0.0,
-        };
-
-        Self {
-            color: get_input_color(&material.color, [1.0; 4]),
-            opacity: get_input_color(&material.opacity, [default_opacity; 4]),
-        }
-    }
-}
-
-impl MaterialUniform for UnLitMaterialUniform {
-    fn to_bytes(&self) -> &[u8] {
-        bytemuck::bytes_of(self)
-    }
-}
-
-fn get_input_color(input: &Option<ShaderInput>, default: [f32; 4]) -> [f32; 4] {
-    match input {
-        Some(ShaderInput::Color(color)) => color.into(),
-        Some(ShaderInput::Scalar(scaler)) => [*scaler, *scaler, *scaler, 1.0],
-        _ => default,
     }
 }

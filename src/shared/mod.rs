@@ -12,6 +12,8 @@ pub mod primitives;
 
 pub use primitives::*;
 
+use crate::ecs::HashId;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct ResourceId(u64);
 
@@ -22,12 +24,8 @@ impl Display for ResourceId {
 }
 
 impl ResourceId {
-    pub fn new(name: &str) -> ResourceId {
-        let mut hasher = DefaultHasher::new();
-
-        name.hash(&mut hasher);
-
-        ResourceId(hasher.finish())
+    pub fn new(id: u64) -> ResourceId {
+        ResourceId(id)
     }
 
     pub fn zero() -> ResourceId {
@@ -37,19 +35,19 @@ impl ResourceId {
 
 impl From<&Path> for ResourceId {
     fn from(value: &Path) -> Self {
-        ResourceId::new(value.to_str().unwrap())
+        ResourceId(HashId::id(value))
     }
 }
 
 impl From<&str> for ResourceId {
     fn from(value: &str) -> Self {
-        ResourceId::new(value)
+        ResourceId(HashId::id(value))
     }
 }
 
 impl From<String> for ResourceId {
     fn from(value: String) -> Self {
-        ResourceId::new(&value)
+        ResourceId(HashId::id(value))
     }
 }
 

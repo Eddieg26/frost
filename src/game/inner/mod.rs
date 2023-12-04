@@ -36,8 +36,8 @@ impl Game {
         let components = builder.components;
         let mut resources = builder.resources;
 
+        resources.register(Graphics::new(graphics.gpu().clone(), graphics.config()));
         resources.register(GameTime::new(timer.clone()));
-        resources.register(Graphics::new(graphics.gpu().clone()));
         resources.register(AssetDatabase::new());
         resources.register(EventManager::new());
         resources.register(scene_manager);

@@ -7,9 +7,9 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub enum LightKind {
-    Directional,
-    Point,
-    Spot,
+    Directional = 0,
+    Point = 1,
+    Spot = 2,
 }
 
 pub struct Light {

@@ -1,6 +1,10 @@
 use super::{
-    gpu::Gpu, material::Material, mesh::SubMesh, texture::Texture2d, vertex::Vertex, BufferId,
-    DrawMesh, MaterialId, MeshId, RenderScene, TextureId,
+    gpu::Gpu,
+    material::Material,
+    mesh::SubMesh,
+    shader::{program::ShaderProgram, resources::ShaderResources},
+    vertex::Vertex,
+    BufferId, DrawMesh, MaterialId, MeshId, RenderScene, TextureId,
 };
 use crate::{
     ecs::Resource,
@@ -16,44 +20,30 @@ use wgpu::util::DeviceExt;
 
 pub struct Graphics {
     gpu: Rc<Gpu>,
+    scene: RenderScene,
     buffers: HashMap<BufferId, wgpu::Buffer>,
     textures: HashMap<TextureId, Box<dyn Texture>>,
-    white_texture: Texture2d,
-    black_texture: Texture2d,
-    gray_texture: Texture2d,
     meshes: HashMap<MeshId, Mesh>,
     materials: HashMap<MaterialId, Material>,
-    scene: RenderScene,
+    shader_programs: HashMap<Material, ShaderProgram>,
+    shader_resources: ShaderResources,
+    config: Config,
 }
 
 impl Graphics {
-    pub fn new(gpu: Rc<Gpu>) -> Self {
-        let white_texture = Texture2d::new_info(
-            gpu.device(),
-            gpu.queue(),
-            &TextureInfo::white(wgpu::TextureFormat::Rgba32Float),
-        );
-        let black_texture = Texture2d::new_info(
-            gpu.device(),
-            gpu.queue(),
-            &TextureInfo::black(wgpu::TextureFormat::Rgba32Float),
-        );
-        let gray_texture = Texture2d::new_info(
-            gpu.device(),
-            gpu.queue(),
-            &TextureInfo::gray(wgpu::TextureFormat::Rgba32Float),
-        );
+    pub fn new(gpu: Rc<Gpu>, config: Config) -> Self {
+        let shader_resources = ShaderResources::new(gpu.device(), 100);
 
         Self {
             gpu,
+            scene: RenderScene::new(),
             buffers: HashMap::new(),
             textures: HashMap::new(),
             meshes: HashMap::new(),
             materials: HashMap::new(),
-            scene: RenderScene::new(),
-            white_texture,
-            black_texture,
-            gray_texture,
+            shader_programs: HashMap::new(),
+            shader_resources,
+            config,
         }
     }
 
@@ -61,20 +51,12 @@ impl Graphics {
         &self.gpu
     }
 
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     pub fn buffer(&self, id: &BufferId) -> Option<&wgpu::Buffer> {
         self.buffers.get(id)
-    }
-
-    pub fn white_texture(&self) -> &Texture2d {
-        &self.white_texture
-    }
-
-    pub fn black_texture(&self) -> &Texture2d {
-        &self.black_texture
-    }
-
-    pub fn gray_texture(&self) -> &Texture2d {
-        &self.gray_texture
     }
 
     pub fn texture<T: Texture>(&self, id: &TextureId) -> Option<&T> {
@@ -93,6 +75,14 @@ impl Graphics {
 
     pub fn material(&self, id: &MaterialId) -> Option<&Material> {
         self.materials.get(id)
+    }
+
+    pub fn shader_program(&self, material: &Material) -> Option<&ShaderProgram> {
+        self.shader_programs.get(material)
+    }
+
+    pub fn shader_resources(&self) -> &ShaderResources {
+        &self.shader_resources
     }
 
     pub(super) fn scene(&self) -> &RenderScene {
@@ -205,9 +195,15 @@ impl Graphics {
         })
     }
 
-    pub fn create_material(&self, info: &MaterialInfo) -> Material {
-        println!("add_material: {:?}", info);
-        todo!()
+    pub fn create_material(&mut self, info: &MaterialInfo) -> Material {
+        let material = info.build();
+        if !self.shader_programs.contains_key(&material) {
+            let shader_program = ShaderProgram::new(self, &material);
+            self.shader_programs
+                .insert(material.clone(), shader_program);
+        }
+
+        material
     }
 
     pub fn create_mesh(
@@ -240,5 +236,27 @@ impl Resource for Graphics {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+}
+
+pub struct Config {
+    color_format: wgpu::TextureFormat,
+    depth_format: wgpu::TextureFormat,
+}
+
+impl Config {
+    pub fn new(color_format: wgpu::TextureFormat, depth_format: wgpu::TextureFormat) -> Self {
+        Self {
+            color_format,
+            depth_format,
+        }
+    }
+
+    pub fn color_format(&self) -> wgpu::TextureFormat {
+        self.color_format
+    }
+
+    pub fn depth_format(&self) -> wgpu::TextureFormat {
+        self.depth_format
     }
 }

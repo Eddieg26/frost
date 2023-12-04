@@ -1,6 +1,24 @@
-use crate::graphics::shaders::layout::ShaderLayout;
+use super::layout::ShaderLayout;
 
-pub fn forward_shader_template(layout: &ShaderLayout, max_lights: u32) -> String {
+pub struct ForwardShaderTemplate;
+
+impl ForwardShaderTemplate {
+    pub fn create_shader(
+        device: &wgpu::Device,
+        layout: &ShaderLayout,
+        max_lights: u32,
+    ) -> wgpu::ShaderModule {
+        let shader = forward_shader_template(layout, max_lights);
+        let module = wgpu::ShaderSource::Wgsl(shader.into());
+
+        device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("lit shader"),
+            source: module,
+        })
+    }
+}
+
+fn forward_shader_template(layout: &ShaderLayout, max_lights: u32) -> String {
     let opacity_var = if layout.is_opaque() {
         "1.0"
     } else {

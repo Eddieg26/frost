@@ -2,7 +2,7 @@ use super::{
     gpu::Gpu,
     renderer::{Renderer, RendererBuilder},
     surface::RenderSurface,
-    Graphics,
+    Config, Graphics,
 };
 use std::rc::Rc;
 use winit::event_loop::EventLoop;
@@ -32,6 +32,10 @@ impl GraphicsEngine {
 
     pub fn surface(&self) -> &RenderSurface {
         &self.surface
+    }
+
+    pub fn config(&self) -> Config {
+        Config::new(self.surface.format(), self.surface.depth_format())
     }
 
     pub fn window(&self) -> &winit::window::Window {
